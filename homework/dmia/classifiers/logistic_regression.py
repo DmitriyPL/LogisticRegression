@@ -97,7 +97,11 @@ class LogisticRegression:
         # Hint: It might be helpful to use np.vstack and np.sum                   #
         ###########################################################################
 
-        y_proba = self.sigmoid(X.dot(self.w))
+        m = X.shape[0]
+        res1 = self.sigmoid(X.dot(self.w)).reshape(m, 1)
+        res2 = (res1 - 1)
+
+        y_proba = np.hstack((res2, res1))
 
         ###########################################################################
         #                           END OF YOUR CODE                              #
@@ -121,8 +125,9 @@ class LogisticRegression:
         # TODO:                                                                   #
         # Implement this method. Store the predicted labels in y_pred.            #
         ###########################################################################
+
         y_proba = self.predict_proba(X, append_bias=True)
-        y_pred = np.where(y_proba > 0.5, 1, 0)
+        y_pred = np.where(np.sum(y_proba[:], axis=1) > 0, 1, 0)
 
         ###########################################################################
         #                           END OF YOUR CODE                              #
@@ -145,32 +150,30 @@ class LogisticRegression:
         """
         dw = np.zeros_like(self.w)  # initialize the gradient as zero
         loss = 0
+
+        m, n = X_batch.shape
+
         # Compute loss and gradient. Your code should not contain python loops.
+        z = X_batch.dot(self.w)
+        A = self.sigmoid(z)
+
+        loss = -np.sum(y_batch * np.log(A) + (1 - y_batch) * np.log(1 - A), axis=0)
+        dw = np.sum(X_batch.toarray() * (A - y_batch).reshape(m, 1), axis=0)
 
         # Right now the loss is a sum over all training examples, but we want it
         # to be an average instead so we divide by num_train.
         # Note that the same thing must be done with gradient.
+        loss = (1.0 / m) * loss
+        dw = (1.0 / m) * dw
 
         # Add regularization to the loss and gradient.
         # Note that you have to exclude bias term in regularization.
 
-        z = X_batch.dot(self.w)
+        loss += reg / (2 * m) * np.sum(self.w[:-1] ** 2)
 
-        A = self.sigmoid(z)
-
-        m, n = X_batch.shape
-
-        loss = -np.sum(y_batch * np.log(A) + (1 - y_batch) * np.log(1 - A), axis=0) / m + \
-               reg * np.sum(self.w[:-1] ** 2) / 2 / m
-
-        X_batch_array = X_batch.toarray()
-
-        buff = self.w[-1]
-        self.w[-1] = 0
-
-        dw = np.sum(X_batch_array * (A - y_batch).reshape(m, 1), axis=0) / m + self.w * reg / m
-
-        self.w[-1] = buff
+        dw_buff = reg / m * self.w
+        dw_buff[-1] = 0
+        dw += dw_buff
 
         return loss, dw
 
